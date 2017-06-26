@@ -1,6 +1,8 @@
 dirtools3
 =========
 
+.. image:: https://travis-ci.org/kirpit/dirtools3.svg?branch=master
+
 Introduction
 ------------
 dirtools3 is a utility package that helps you to scan file system folders to
