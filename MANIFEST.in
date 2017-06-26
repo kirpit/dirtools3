@@ -1,0 +1,4 @@
+include *.rst *.txt
+graft docs
+exclude .*
+include .gitignore

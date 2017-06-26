@@ -1,0 +1,7 @@
+# Future CLI command ideas
+./dirt.py --search=*.ini /path/to/trim
+./dirt.py --hash /path/to/trim
+./dirt.py --filter-size-min=100mb /path/to/trim
+./dirt.py --filter-size-max=500mb /path/to/trim
+./dirt.py --filter-created-before=20160301 /path/to/trim
+./dirt.py --filter-modified-after=20160301 /path/to/trim
