@@ -1,0 +1,7 @@
+language: python
+python:
+  - "3.6"
+  - "3.6.1"
+install: pip install .[test]
+# command to run tests
+script: pytest -v
