@@ -139,15 +139,15 @@ def bytes2human(value: int or float, precision: int=2) -> str:
             return '{0.real} {1}'.format(size, SYM_NAMES[i])
 
 
-def parse_created_at(statinfo):
+def parse_created_at(stat):
     """Attempts to guess creation time from os.stat() based on whichever date
     is the oldest.
 
-    :param statinfo: DirEntry.stat() or os.stat_result()
-    :type statinfo: os.stat_result
+    :param stat: DirEntry.stat() or os.stat_result()
+    :type stat: os.stat_result
     :return: Guessed creation timestamp
     :rtype: int
     """
-    # statinfo.
-    return int(min(statinfo.st_mtime, statinfo.st_ctime,
-                   getattr(statinfo, 'st_birthtime', math.inf)))
+    # stat.
+    return int(min(stat.st_atime, stat.st_mtime, stat.st_ctime,
+                   getattr(stat, 'st_birthtime', math.inf)))
