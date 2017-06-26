@@ -2,6 +2,7 @@ dirtools3
 =========
 
 .. image:: https://travis-ci.org/kirpit/dirtools3.svg?branch=master
+    :target: https://travis-ci.org/kirpit/dirtools3
 
 Introduction
 ------------
