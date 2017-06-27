@@ -108,7 +108,6 @@ class DummyFolderFactory(object):
             return
         elif self.total_items > 0:
             self._loop.run_until_complete(asyncio.wait(self._tasks))
-            assert all(p.wait() == 0 for p in self._tasks_birthtime_flags)
 
             # __enter__ was never initiated
             if len(self._items) == 0:
@@ -145,7 +144,7 @@ class DummyFolderFactory(object):
         This function will return a random datetime between two datetime 
         objects.
         """
-        delta = datetime(2020, 12, 31) - datetime(1970, 1, 1)
+        delta = datetime.now() - datetime(1970, 1, 1)
         int_delta = (delta.days * 24 * 60 * 60) + delta.seconds
 
         random_sec1 = randrange(int_delta)
@@ -160,18 +159,22 @@ class DummyFolderFactory(object):
             f.truncate(size)
 
         # Change file creation and modification to random time
-        created_at, modified_at = self.get_rand_time_pair()
-        os.utime(filepath, times=(created_at, modified_at))
+        atime, mtime = self.get_rand_time_pair()
+        os.utime(filepath, times=(atime, mtime))
         # Change st_birthtime on MacOS
         if platform == 'darwin':
-            created_str = datetime.fromtimestamp(created_at).strftime('%m/%d/%Y %H:%M:%S')
+            created_str = datetime.fromtimestamp(atime).strftime('%m/%d/%Y %H:%M:%S')
             # subprocess.run with list arguments and shell=False behaves very strange
             # and sets its st_birthtime to earlier than given timestamp very weirdly
             command = 'SetFile -d "{0}" {1}'.format(created_str, filepath)
-            self._tasks_birthtime_flags.append(subprocess.Popen(command, shell=True))
+            process = subprocess.Popen(command,
+                                       shell=True, close_fds=True,
+                                       stderr=subprocess.PIPE,
+                                       stdout=subprocess.PIPE)
+            self._tasks_birthtime_flags.append(process)
 
         self._total_size += size
-        return filepath, created_at, modified_at
+        return filepath, atime, mtime
 
     def _create_sub_folder(self, base, length, prefix=''):
         name = '{prefix}{name}'.format(
@@ -204,12 +207,19 @@ class DummyFolderFactory(object):
 
         return _all_subs
 
+    def _wait_birthtime_tasks(self):
+        try:
+            while True:
+                process = self._tasks_birthtime_flags.pop(0)
+                assert process.wait() == 0
+        except IndexError:
+            pass
+
     async def _create_item(self, base, depth, item_size):
         # - FUNCTION BEGINS -
         # Depth is zero, means create a single file and return
         if depth == 0:
             item_path, created_at, modified_at = self._create_dummy_file(base, item_size)
-
             self._items.append({
                 'name': os.path.relpath(item_path, self._root),
                 'size': item_size,
@@ -217,6 +227,7 @@ class DummyFolderFactory(object):
                 'num_of_files': 1,
                 'created_at': created_at,
                 'modified_at': modified_at})
+            self._wait_birthtime_tasks()
             return
 
         # Depth >= 1, we will create some sub folders
@@ -244,6 +255,7 @@ class DummyFolderFactory(object):
             'num_of_files': num_of_files,
             'created_at': created_at,
             'modified_at': modified_at})
+        self._wait_birthtime_tasks()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         # Because of pytest limitation, exceptions not raised with

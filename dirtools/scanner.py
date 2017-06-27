@@ -306,14 +306,7 @@ class FolderScan(object):
                     modified_at = max(modified_at, _modified)
                     depth = max(depth, _depth)
 
-            # Folder size and timestamps are calculated
-            if created_at is not math.inf:
-                return total_size, depth, num_of_files, created_at, modified_at
-
-            # Completely empty folder, use its own stat
-            stat = item.stat(follow_symlinks=False)
-            return (total_size, depth, num_of_files,
-                    utils.parse_created_at(stat), int(stat.st_mtime))
+            return total_size, depth, num_of_files, created_at, modified_at
 
     @staticmethod
     def _get_item_sort_key(sort_by: SortBy) -> Tuple[str, bool]:
@@ -391,15 +384,24 @@ class FolderScan(object):
         :rtype: None
         """
         attributes = self._get_attributes(item)
+
+        # It is an empty folder, grab folder timestamps
+        if attributes[3] is math.inf and attributes[4] == 0:
+            stat = item.stat(follow_symlinks=False)
+            created_at = utils.parse_created_at(stat)
+            modified_at = int(stat.st_mtime)
+        else:
+            created_at = attributes[3]
+            modified_at = attributes[4]
+
         summary = {'name': os.path.relpath(item.path, self._root),
                    'size': attributes[0],
                    'depth': attributes[1],
                    'num_of_files': attributes[2],
-                   'created_at': attributes[3],
-                   'modified_at': attributes[4]}
+                   'created_at': created_at,
+                   'modified_at': modified_at}
 
         index = self._find_index(summary, sort_by)
-        # logger.debug('Inserting #{0:d}: {1}'.format(index, summary['name']))
         self._total_size += summary['size']
         self._items_len += 1
         self._items.insert(index, summary)

@@ -186,13 +186,7 @@ class TestFolderScanner(object):
         _humanise_item.assert_has_calls(call(s, precision=2) for s in scanned_nonhuman)
         _humanise_item.reset_mock()
 
-        try:
-            assert len(factory_items) == len(scanned_nonhuman) == \
-                   len(scan) == scan._items_len
-        except AssertionError:
-            print('Items: {0}'.format([i['name'] for i in factory_items]))
-            print('Scanned: {0}'.format([i['name'] for i in scanned_nonhuman]))
-            raise
+        assert len(factory_items) == len(scanned_nonhuman) == len(scan) == scan._items_len
 
         for item in factory_items:
             raw = next(i for i in scanned_nonhuman if i['name'] == item['name'])
