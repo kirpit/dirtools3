@@ -9,13 +9,13 @@ import types
 
 from dirtools import scanner
 from dirtools.loggers import logger
-from dirtools.scanner import FolderScan, SortBy
+from dirtools.scanner import Folder, SortBy
 from dirtools.tests.factory import DummyFolderFactory
 from dirtools.utils import human2bytes, bytes2human
 
 
 class TestFolderScanner(object):
-    """Test group to make sure FolderScan class has been done and functioning
+    """Test group to make sure Folder class has been done and functioning
     properly.
     """
 
@@ -38,7 +38,7 @@ class TestFolderScanner(object):
         :type monkeypatch: _pytest.monkeypatch.MonkeyPatch
         :param tmp_folder: Test params and dummy test folder factory fixture pair.
         :type tmp_folder: (dict, dirtools.tests.factory.DummyFolderFactory)
-        :param clone_factory: Factory to create `FolderScan` clone instance.
+        :param clone_factory: Factory to create `Folder` clone instance.
         :type clone_factory: dirtools.tests.conftest.clone_factory._factory
         """
 
@@ -64,7 +64,7 @@ class TestFolderScanner(object):
         params, factory = tmp_folder
         # Mock of ._scan() method
         scanner_mock = Mock(side_effect=scanner_coro)
-        scanner_coro_ori = FolderScan._scan
+        scanner_coro_ori = Folder._scan
 
         # Create a scanner class mock from the factory
         scan = clone_factory(factory.path, params['sort_by'], params['level'],
@@ -91,7 +91,7 @@ class TestFolderScanner(object):
         """
         params, factory = tmp_folder
         # Mock the _await internal function first
-        scan = FolderScan(factory.path, params['sort_by'], params['level'])
+        scan = Folder(factory.path, params['sort_by'], params['level'])
         _ = scan.items()
 
         blocker = Mock()
@@ -147,7 +147,7 @@ class TestFolderScanner(object):
         :type tmp_folder: (dict, dirtools.tests.factory.DummyFolderFactory)
         """
         params, factory = tmp_folder
-        scan = FolderScan(factory.path, params['sort_by'], params['level'])
+        scan = Folder(factory.path, params['sort_by'], params['level'])
         items_len = len(list(scan.items()))
 
         # For an empty folder
@@ -176,7 +176,7 @@ class TestFolderScanner(object):
         :type tmp_folder: (dict, dirtools.tests.factory.DummyFolderFactory)
         """
         params, factory = tmp_folder
-        scan = FolderScan(factory.path, params['sort_by'], params['level'])
+        scan = Folder(factory.path, params['sort_by'], params['level'])
         _humanise_item = Mock(side_effect=scan._humanise_item)
         monkeypatch.setattr(scan, '_humanise_item', _humanise_item)
 
@@ -197,11 +197,9 @@ class TestFolderScanner(object):
             assert human['size'] == bytes2human(item['size'])
             assert raw['depth'] == item['depth']
             assert raw['num_of_files'] == item['num_of_files']
-
-            # There is sometimes a second difference because
-            # our factory was just created
-            assert raw['created_at'] == item['created_at']
-            assert raw['modified_at'] == item['modified_at']
+            assert raw['atime'] == item['atime']
+            assert raw['mtime'] == item['mtime']
+            # assert raw['ctime'] == item['ctime']
 
     def test_internal_block_waits_for_loop_completion(self, monkeypatch, tmp_folder):
         """Make sure internal _await() waits until loop complete.
@@ -213,7 +211,7 @@ class TestFolderScanner(object):
         :type tmp_folder: (dict, dirtools.tests.factory.DummyFolderFactory)
         """
         params, factory = tmp_folder
-        scan = FolderScan(factory.path, params['sort_by'], params['level'])
+        scan = Folder(factory.path, params['sort_by'], params['level'])
 
         # Mock the desired functions that shall be called
         is_done = Mock(return_value=False)
@@ -242,7 +240,7 @@ class TestFolderScanner(object):
             return [i.path async for i in _scan._iter_items(_scan._root)]
 
         params, factory = tmp_folder
-        scan = FolderScan(factory.path, params['sort_by'], params['level'])
+        scan = Folder(factory.path, params['sort_by'], params['level'])
 
         loop = asyncio.get_event_loop()
         collected_paths = loop.run_until_complete(_iter_item_paths(scan))
@@ -256,7 +254,7 @@ class TestFolderScanner(object):
             return [i async for i in _scan._iter_items(_scan._root)]
 
         params, factory = tmp_folder
-        scan = FolderScan(factory.path, params['sort_by'], params['level'])
+        scan = Folder(factory.path, params['sort_by'], params['level'])
         loop = asyncio.get_event_loop()
         entries = loop.run_until_complete(_get_dir_entries(scan))
 
@@ -264,11 +262,12 @@ class TestFolderScanner(object):
             attrs = scan._get_attributes(entry)
             item = next(i for i in scan.items(humanise=False) if entry.path.endswith(i['name']))
 
-            assert item['size'] == attrs[0]
-            assert item['depth'] == attrs[1]
-            assert item['num_of_files'] == attrs[2]
-            assert item['created_at'] == attrs[3]
-            assert item['modified_at'] == attrs[4]
+            assert item['size'] == attrs['size']
+            assert item['depth'] == attrs['depth']
+            assert item['num_of_files'] == attrs['num_of_files']
+            assert item['atime'] == attrs['atime']
+            assert item['mtime'] == attrs['mtime']
+            assert item['ctime'] == attrs['ctime']
 
     def test_internal_get_item_sort_key_functions_correctly_and_called_as_many_items(self,
                                                                                      monkeypatch,
@@ -283,7 +282,7 @@ class TestFolderScanner(object):
         :type tmp_folder: (dict, dirtools.tests.factory.DummyFolderFactory)
         """
         with pytest.raises(TypeError):
-            FolderScan._get_item_sort_key('foo')
+            Folder._get_item_sort_key('foo')
 
         params, factory = tmp_folder
         try:
@@ -292,16 +291,16 @@ class TestFolderScanner(object):
             pass
 
         for sort_by in SortBy:
-            pair = FolderScan._get_item_sort_key(sort_by=sort_by)
+            pair = Folder._get_item_sort_key(sort_by=sort_by)
             assert isinstance(pair, tuple) and len(pair) == 2 \
                    and isinstance(pair[0], str) and isinstance(pair[1], bool)
 
             if params['total_items'] != 0:
                 assert pair[0] in item.keys()
 
-        scan = FolderScan(factory.path, params['sort_by'], params['level'])
+        scan = Folder(factory.path, params['sort_by'], params['level'])
         get_item_sort_key = Mock(
-            return_value=FolderScan._get_item_sort_key(params['sort_by']))
+            return_value=Folder._get_item_sort_key(params['sort_by']))
         monkeypatch.setattr(scan, '_get_item_sort_key', get_item_sort_key)
 
         items = list(scan.items())
@@ -321,7 +320,7 @@ class TestFolderScanner(object):
         :type tmp_folder: (dict, dirtools.tests.factory.DummyFolderFactory)
         """
         params, factory = tmp_folder
-        scan = FolderScan(factory.path, params['sort_by'], params['level'])
+        scan = Folder(factory.path, params['sort_by'], params['level'])
         find_index = Mock(return_value=0)
         monkeypatch.setattr(scan, '_find_index', find_index)
 
@@ -340,7 +339,7 @@ class TestFolderScanner(object):
         :type tmp_folder: (dict, dirtools.tests.factory.DummyFolderFactory)
         """
         params, factory = tmp_folder
-        scan = FolderScan(factory.path, params['sort_by'], params['level'])
+        scan = Folder(factory.path, params['sort_by'], params['level'])
 
         # Mock internal and external calls
         insert_sorted = Mock(side_effect=scan._insert_sorted)
@@ -393,14 +392,14 @@ class TestFolderScanner(object):
         for item in factory.items:
             # Check for each precision
             for p in range(12):
-                result = FolderScan._humanise_item(item, precision=p)
+                result = Folder._humanise_item(item, precision=p)
 
                 assert result is not item
                 assert tuple(result.keys()) == tuple(item.keys())
                 assert result != item
                 _bytes2human.assert_called_once_with(item['size'], precision=p)
-                assert strftime.call_count == 2
-                assert gmtime.call_count == 2
+                assert strftime.call_count == 3
+                assert gmtime.call_count == 3
 
                 _bytes2human.reset_mock()
                 strftime.reset_mock()
@@ -417,7 +416,7 @@ class TestFolderScanner(object):
         :type tmp_folder: (dict, dirtools.tests.factory.DummyFolderFactory)
         """
         params, factory = tmp_folder
-        scan = FolderScan(factory.path, params['sort_by'], params['level'])
+        scan = Folder(factory.path, params['sort_by'], params['level'])
 
         # .resort()
         resort = Mock(side_effect=scan.resort)
@@ -465,7 +464,7 @@ class TestFolderScanner(object):
         # Use another factory folder that is not shared with other tests
         with DummyFolderFactory(params['total_items'], params['total_size'],
                                 level=params['level']) as factory:
-            scan = FolderScan(factory.path, params['sort_by'], level=params['level'])
+            scan = Folder(factory.path, params['sort_by'], level=params['level'])
             _humanise_item = Mock(side_effect=scan._humanise_item)
             monkeypatch.setattr(scan, '_humanise_item', _humanise_item)
 

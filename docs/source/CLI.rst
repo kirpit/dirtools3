@@ -6,22 +6,22 @@ available in your environment executables that you can invoke from any path
 within your command line.
 
 This command gives you nothing more than invoking every functionality of
-:class:`dirtools.scanner.FolderScan` and displaying it nicely.
+:class:`dirtools.scanner.Folder` and displaying it nicely.
 
 ``dirt --help`` is pretty much self explanatory::
 
     Usage: dirt [OPTIONS] PATH
 
-      Command line interface to the dirtools3 package.
+      Command line interface to the dirtools package.
 
     Options:
-      -s, --sortby [oldest|newest|coldest|hottest|smallest|largest|least_files|most_files|least_depth|most_depth]
+      -s, --sortby [atime_asc|atime_desc|mtime_asc|mtime_desc|ctime_asc|ctime_desc|smallest|largest|least_files|most_files|least_depth|most_depth]
                                       Sorting parameter to display the items in
-                                      desired order. Defaults to "newest" that
-                                      shows recently created items at the
-                                      beginning, which is opposite of "oldest". To
-                                      display newly modified ones use "hottest"
-                                      and "coldest" for reverse.
+                                      desired order. Defaults to "atime_desc" that
+                                      shows recently accessed items at the
+                                      beginning, which is opposite of "atime_asc".
+                                      To display newly modified ones use
+                                      "mtime_desc" and "mtime_asc" for vice versa.
       -o, --output [csv|simple|plain|grid|fancy_grid|pipe|orgtbl|jira|psql|rst|mediawiki|moinmoin|html|latex|latex_booktabs|tsv|textile]
                                       This option is passed directly to python-
                                       tabulate package as the "tablefmt"
@@ -46,7 +46,8 @@ This command gives you nothing more than invoking every functionality of
                                       example; "900mb".
 
                                       WARNING: --trim-down
-                                      action DELETES your files and cannot be undo!
+                                      action DELETES your files and cannot be
+                                      undo!
       -h, --help                      Show this message and exit.
 
 
@@ -90,30 +91,21 @@ or ``--precision`` option to specify the floating decimal points::
 
 Depth
 -----
-This is the ``level`` keyword parameter of :class:`dirtools.scanner.FolderScan` class.
+This is the ``level`` keyword parameter of :class:`dirtools.scanner.Folder` class.
 Please refer to its documentation for different use cases such as the items are not in
 the root folder but in ``N`` number of _levels_ inside the given folder.
 
 No Human
 --------
 If you need to display the items in raw format for some reason, meaning the sizes will
-be in bytes (integer), creation and modification dates in timestamp, you may pass the
-``-nh`` or ``--nohuman`` flag option to do so::
-
-    $ dirt -nh /path/to/Python-3.6.0-source
-                 Name      Size    Depth    Files    Created At    Modified At
-    -----------------  --------  -------  -------  ------------  -------------
-           python.exe   2923572        0        1    1486429611     1486429611
-       pybuilddir.txt        33        0        1    1486429611     1486429611
-                build  13692866       10      183    1486429611     1486429662
-      libpython3.6m.a   9891344        0        1    1486429610     1486429610
-    # ... etc
+be in bytes (integer), access, modify and change time metadata in timestamp, you may
+pass the ``-nh`` or ``--nohuman`` flag option to do so.
 
 Trimming Down
 -------------
 
-This is the equivalent of calling :meth:`dirtools.scanner.FolderScan.cleanup_items`
-instead of :meth:`dirtools.scanner.FolderScan.items`.
+This is the equivalent of calling :meth:`dirtools.scanner.Folder.cleanup_items`
+instead of :meth:`dirtools.scanner.Folder.items`.
 
 .. warning::
 
