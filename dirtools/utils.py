@@ -1,6 +1,3 @@
-import math
-import os
-
 #: Storage size symbols
 SYM_NAMES = ('Byte', 'Kb', 'Mb', 'Gb', 'Tb', 'Pb', 'Xb', 'Zb', 'Yb')
 
@@ -137,17 +134,3 @@ def bytes2human(value: int or float, precision: int=2) -> str:
             return '{0:d} {1}'.format(int(size), SYM_NAMES[i])
         else:
             return '{0.real} {1}'.format(size, SYM_NAMES[i])
-
-
-def parse_created_at(stat):
-    """Attempts to guess creation time from os.stat() based on whichever date
-    is the oldest.
-
-    :param stat: DirEntry.stat() or os.stat_result()
-    :type stat: os.stat_result
-    :return: Guessed creation timestamp
-    :rtype: int
-    """
-    # stat.
-    return int(min(stat.st_atime, stat.st_mtime, stat.st_ctime,
-                   getattr(stat, 'st_birthtime', math.inf)))

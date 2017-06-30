@@ -1,5 +1,4 @@
 import asyncio
-import math
 import os
 import shutil
 import time
@@ -17,37 +16,40 @@ class SortBy(Enum):
     """Helper class to be given one of its following constants as the sorting
     option to the :class:`FolderScan`.
 
-    >>> from dirtools import FolderScan, SortBy
+    >>> from dirtools import Folder, SortBy
     >>>
-    >>> scan = FolderScan('/path/to/scan', SortBy.OLDEST)
+    >>> scan = Folder('/path/to/scan', SortBy.CTIME_ASC)
     >>> for item in scan.items():
     >>>     print(item)
     >>> scan.resort(SortBy.LARGEST)
     >>> # etc..
     """
 
-    #: Oldest created items first.
-    OLDEST = 1
-    #: Newest created items first.
-    NEWEST = 2
-    #: Least recent modified, in other word _coldest_ items first.
-    COLDEST = 3
-    #: Most recent modified, in other word _hottest_ items first.
-    HOTTEST = 4
+    #: Access time ascending
+    ATIME_ASC = 1
+    #: Access time descending
+    ATIME_DESC = 2
+    #: Modify time ascending
+    MTIME_ASC = 3
+    #: Modify time descending
+    MTIME_DESC = 4
+    #: Change time ascending
+    CTIME_ASC = 5
+    #: Change time descending
+    CTIME_DESC = 6
+
     #: Smallest in size items first whether it's a file or folder.
-    SMALLEST = 5
+    SMALLEST = 7
     #: Largest in size items first whether it's a file or folder.
-    LARGEST = 6
-
+    LARGEST = 8
     #: The items with the least number of files first.
-    LEAST_FILES = 7
+    LEAST_FILES = 9
     #: The items with the most number of files first.
-    MOST_FILES = 8
-
+    MOST_FILES = 10
     #: The folder that have the deepest sub folders first.
-    LEAST_DEPTH = 9
+    LEAST_DEPTH = 11
     #: The folder that have the shallowest sub folders first.
-    MOST_DEPTH = 10
+    MOST_DEPTH = 12
 
     def __str__(self):
         return self.name
@@ -56,7 +58,7 @@ class SortBy(Enum):
         return self.value
 
 
-class FolderScan(object):
+class Folder(object):
     """The main class behind the magic that takes care of scanning an entire
     folder and its sub folders, recursively in the asynchronous manner.
 
@@ -68,8 +70,8 @@ class FolderScan(object):
 
     .. code-block::python
 
-        from dirtools.scanner import FolderScan, SortBy
-        scan = FolderScan('/path/to/scan', SortBy.OLDEST)
+        from dirtools.scanner import Folder, SortBy
+        scan = Folder('/path/to/scan', SortBy.CTIME_ASC)
 
         # do a lot of other work here...
 
@@ -105,7 +107,7 @@ class FolderScan(object):
         to scan under the `{genre}` folders.
     :type level: int
     :param time_format: Optional date/time parsing format for _humanising_
-        the `size`, `created_at` and `modified_at` attributes of each item. 
+        the `size`, `atime`, `mtime` and `ctime` attributes of each item. 
         Defaults to :attr:`._time_format`. See details for customising 
         this parameter:
 
@@ -139,7 +141,7 @@ class FolderScan(object):
         """Direct integer representation of the current items' length. Blocks until the scanning 
         operation has been completed on first access.
         
-        >>> folder = FolderScan('/path/to/Python-3.6.0-source')
+        >>> folder = Folder('/path/to/Python-3.6.0-source')
         >>> assert len(folder) == 40 
 
         :return: Length of the items (sub-directories or files) inside the scanned folder.
@@ -188,8 +190,9 @@ class FolderScan(object):
     def _humanise_item(cls, item: dict, precision: int) -> dict:
         humanised = item.copy()
         humanised['size'] = utils.bytes2human(item['size'], precision=precision)
-        humanised['created_at'] = time.strftime(cls._time_format, time.gmtime(item['created_at']))
-        humanised['modified_at'] = time.strftime(cls._time_format, time.gmtime(item['modified_at']))
+        humanised['atime'] = time.strftime(cls._time_format, time.gmtime(item['atime']))
+        humanised['mtime'] = time.strftime(cls._time_format, time.gmtime(item['mtime']))
+        humanised['ctime'] = time.strftime(cls._time_format, time.gmtime(item['ctime']))
         return humanised
 
     def cleanup_items(self, max_total_size: str, humanise: bool=True, precision: int=2) -> Iterator[dict]:
@@ -270,43 +273,54 @@ class FolderScan(object):
                 # symlinks, if the level is not reached yet.
                 continue
 
-    def _get_attributes(self, item: os.DirEntry) -> Tuple[int, int, int, int, int]:
+    def _get_attributes(self, item: os.DirEntry) -> dict:
         """Parses entire item and subdirectories and returns:
 
         * Total size in bytes
         * Maximum folder depth of item
         * Total number of files this item contains
-        * Creation timestamp
-        * Latest modification timestamp
+        * Access timestamp
+        * Modification timestamp
+        * Change timestamp
 
         in the same order as tuple.
 
         :param item: DirEntry object
         :type item: posix.DirEntry
-        :return: (size, depth, num_of_files, created_at, modified_at)
-        :rtype: (int, int, int, int, int)
+        :return: Dictionary of {size, depth, num_of_files, atime, mtime, ctime}
+        :rtype: dict
         """
         # it's a file or symlink, size is already on item stat
         if not item.is_dir(follow_symlinks=False):
             stat = item.stat(follow_symlinks=False)
-            return (stat.st_size, self._get_depth(item.path) - self._level, 1,
-                    utils.parse_created_at(stat), int(stat.st_mtime))
+            return {'size': stat.st_size,
+                    'depth': self._get_depth(item.path) - self._level,
+                    'num_of_files': 1,
+                    'atime': int(stat.st_atime),
+                    'mtime': int(stat.st_mtime),
+                    'ctime': int(stat.st_ctime)}
 
         # It is a folder, recursive size check
         else:
-            total_size = num_of_files = modified_at = depth = 0
-            created_at = math.inf
+            total_size = num_of_files = depth = 0
+            atime = mtime = ctime = 0
 
             with os.scandir(item.path) as directory:
                 for i in directory:
-                    _size, _depth, _files, _created, _modified = self._get_attributes(i)
-                    total_size += _size
-                    num_of_files += _files
-                    created_at = min(created_at, _created)
-                    modified_at = max(modified_at, _modified)
-                    depth = max(depth, _depth)
+                    attrs = self._get_attributes(i)
+                    total_size += attrs['size']
+                    num_of_files += attrs['num_of_files']
+                    atime = max(atime, attrs['atime'])
+                    mtime = max(mtime, attrs['mtime'])
+                    ctime = max(ctime, attrs['ctime'])
+                    depth = max(depth, attrs['depth'])
 
-            return total_size, depth, num_of_files, created_at, modified_at
+            return {'size': total_size,
+                    'depth': depth,
+                    'num_of_files': num_of_files,
+                    'atime': atime,
+                    'mtime': mtime,
+                    'ctime': ctime}
 
     @staticmethod
     def _get_item_sort_key(sort_by: SortBy) -> Tuple[str, bool]:
@@ -318,18 +332,22 @@ class FolderScan(object):
 
         :param sort_by: SortBy enum attribute
         :type sort_by: SortBy
-        :return: (item key to sort, ascending/descending)
+        :return: (item key to sort, reverse)
         :rtype: (str, bool)
         :exception: Throws `TypeError` if not a :class:`SortBy` enum element.
         """
-        if sort_by is SortBy.OLDEST:
-            return 'created_at', False
-        elif sort_by is SortBy.NEWEST:
-            return 'created_at', True
-        elif sort_by is SortBy.COLDEST:
-            return 'modified_at', False
-        elif sort_by is SortBy.HOTTEST:
-            return 'modified_at', True
+        if sort_by is SortBy.ATIME_ASC:
+            return 'atime', False
+        elif sort_by is SortBy.ATIME_DESC:
+            return 'atime', True
+        elif sort_by is SortBy.MTIME_ASC:
+            return 'mtime', False
+        elif sort_by is SortBy.MTIME_DESC:
+            return 'mtime', True
+        elif sort_by is SortBy.CTIME_ASC:
+            return 'ctime', False
+        elif sort_by is SortBy.CTIME_DESC:
+            return 'ctime', True
         elif sort_by is SortBy.SMALLEST:
             return 'size', False
         elif sort_by is SortBy.LARGEST:
@@ -383,23 +401,22 @@ class FolderScan(object):
         :type sort_by: SortBy
         :rtype: None
         """
-        attributes = self._get_attributes(item)
+        attrs = self._get_attributes(item)
 
         # It is an empty folder, grab folder timestamps
-        if attributes[3] is math.inf and attributes[4] == 0:
+        if attrs['atime'] == 0 and attrs['mtime'] == 0 and attrs['ctime'] == 0:
             stat = item.stat(follow_symlinks=False)
-            created_at = utils.parse_created_at(stat)
-            modified_at = int(stat.st_mtime)
-        else:
-            created_at = attributes[3]
-            modified_at = attributes[4]
+            attrs['atime'] = int(stat.st_atime)
+            attrs['mtime'] = int(stat.st_mtime)
+            attrs['ctime'] = int(stat.st_ctime)
 
         summary = {'name': os.path.relpath(item.path, self._root),
-                   'size': attributes[0],
-                   'depth': attributes[1],
-                   'num_of_files': attributes[2],
-                   'created_at': created_at,
-                   'modified_at': modified_at}
+                   'size': attrs['size'],
+                   'depth': attrs['depth'],
+                   'num_of_files': attrs['num_of_files'],
+                   'atime': attrs['atime'],
+                   'mtime': attrs['mtime'],
+                   'ctime': attrs['ctime']}
 
         index = self._find_index(summary, sort_by)
         self._total_size += summary['size']
@@ -411,7 +428,7 @@ class FolderScan(object):
         parameter. This method is also called at the end of async scanning
         process to fix the async ordering glitches by :meth:`._insert_sorted`.
 
-        You can sort a :class:`FolderScan` object as many times as you like, it
+        You can sort a :class:`Folder` object as many times as you like, it
         will not scan the directory again, instead it will re-order the already
         scanned internal `_items` list. However;
 

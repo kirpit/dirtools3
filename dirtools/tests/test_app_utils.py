@@ -1,5 +1,3 @@
-from unittest.mock import Mock
-
 import pytest
 
 from dirtools import utils
@@ -97,31 +95,4 @@ def test_bytes2human_calculates_correct_bytes_to_human():
         # Also assert well-formatted human value to bytes
         assert byte_val == utils.human2bytes(human)
         assert utils.bytes2human(byte_val, precision=11) == human
-
-
-def test_parse_created_at_func_returns_prefered_stat_attr():
-    atime_val = 1.0
-    mtime_val = 2.0
-    ctime_val = 3.0
-    btime_val = 4.0
-
-    def _raise_attr_error(raise_error=True):
-        if raise_error is True:
-            class AttrErrorRaiser(object):
-                def __lt__(self, other):
-                    raise AttributeError()
-            return AttrErrorRaiser()
-        else:
-            return btime_val
-
-    # Create stat mock without st_birthtime on mac
-    stat = Mock(st_atime=atime_val, st_mtime=mtime_val,
-                st_ctime=ctime_val, st_birthtime=_raise_attr_error())
-    with pytest.raises(AttributeError):
-        utils.parse_created_at(stat)
-
-    stat.st_birthtime = _raise_attr_error(raise_error=False)
-    result = utils.parse_created_at(stat)
-    assert type(result) is int
-    assert result == atime_val
 

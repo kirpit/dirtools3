@@ -1,5 +1,4 @@
 import asyncio
-import math
 import os
 import shutil
 import stat
@@ -160,7 +159,7 @@ class DummyFolderFactory(object):
 
         # Change file creation and modification to random time
         atime, mtime = self.get_rand_time_pair()
-        os.utime(filepath, times=(atime, mtime))
+        os.utime(filepath, times=(atime, mtime), follow_symlinks=False)
         # Change st_birthtime on MacOS
         if platform == 'darwin':
             created_str = datetime.fromtimestamp(atime).strftime('%m/%d/%Y %H:%M:%S')
@@ -174,7 +173,7 @@ class DummyFolderFactory(object):
             self._tasks_birthtime_flags.append(process)
 
         self._total_size += size
-        return filepath, atime, mtime
+        return filepath, atime, mtime, os.stat(filepath).st_ctime
 
     def _create_sub_folder(self, base, length, prefix=''):
         name = '{prefix}{name}'.format(
@@ -219,14 +218,15 @@ class DummyFolderFactory(object):
         # - FUNCTION BEGINS -
         # Depth is zero, means create a single file and return
         if depth == 0:
-            item_path, created_at, modified_at = self._create_dummy_file(base, item_size)
+            item_path, atime, mtime, ctime = self._create_dummy_file(base, item_size)
             self._items.append({
                 'name': os.path.relpath(item_path, self._root),
                 'size': item_size,
                 'depth': depth,
                 'num_of_files': 1,
-                'created_at': created_at,
-                'modified_at': modified_at})
+                'atime': atime,
+                'mtime': mtime,
+                'ctime': ctime})
             self._wait_birthtime_tasks()
             return
 
@@ -239,13 +239,13 @@ class DummyFolderFactory(object):
         num_of_files = self._FILE_PER_FOLDER * len(sub_folders)
         file_size = round(item_size / num_of_files)
         item_size = 0
-        created_at = math.inf
-        modified_at = 0
+        atime = mtime = ctime = 0
 
         for f in range(num_of_files):
-            _, _created_at, _modified_at = self._create_dummy_file(choice(sub_folders), file_size)
-            created_at = min(created_at, _created_at)
-            modified_at = max(modified_at, _modified_at)
+            _, _atime, _mtime, _ctime = self._create_dummy_file(choice(sub_folders), file_size)
+            atime = max(atime, _atime)
+            mtime = max(mtime, _mtime)
+            ctime = max(ctime, _ctime)
             item_size += file_size
 
         self._items.append({
@@ -253,8 +253,9 @@ class DummyFolderFactory(object):
             'size': item_size,
             'depth': depth,
             'num_of_files': num_of_files,
-            'created_at': created_at,
-            'modified_at': modified_at})
+            'atime': atime,
+            'mtime': mtime,
+            'ctime': ctime})
         self._wait_birthtime_tasks()
 
     def __exit__(self, exc_type, exc_val, exc_tb):

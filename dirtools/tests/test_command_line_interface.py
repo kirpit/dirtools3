@@ -21,7 +21,7 @@ class TestDirtCLI(object):
     _BIN_DIRT_PY = os.path.join(_BIN_BASE, 'dirt.py')
 
     _DEFAULTS = {
-        'sort_by': SortBy.NEWEST,
+        'sort_by': SortBy.ATIME_DESC,
         'output': 'simple',
         'precision': 2,
         'depth': 0,
@@ -64,15 +64,17 @@ class TestDirtCLI(object):
                 size = '"{0}",'.format(item['size'])
                 depth = '{0},'.format(item['depth'])
                 num_of_files = '{0},'.format(item['num_of_files'])
-                created_at = '"{0}",'.format(item['created_at'])
-                modified_at = '"{0}"'.format(item['modified_at'])
+                atime = '"{0}",'.format(item['atime'])
+                mtime = '"{0}",'.format(item['mtime'])
+                ctime = '"{0}"'.format(item['ctime'])
             else:
                 name = item['name']
                 size = item['size']
                 depth = str(item['depth'])
                 num_of_files = str(item['num_of_files'])
-                created_at = item['created_at']
-                modified_at = item['modified_at']
+                atime = item['atime']
+                mtime = item['mtime']
+                ctime = item['ctime']
 
             # name
             assert line.startswith(name)
@@ -86,11 +88,14 @@ class TestDirtCLI(object):
             # num_of_files
             assert line.startswith(num_of_files)
             line = line.replace(num_of_files, '', 1).lstrip()
-            # created_at
-            assert line.startswith(created_at)
-            line = line.replace(created_at, '', 1).lstrip()
-            # modified_at
-            assert line == modified_at
+            # atime
+            assert line.startswith(atime)
+            line = line.replace(atime, '', 1).lstrip()
+            # mtime
+            assert line.startswith(mtime)
+            line = line.replace(mtime, '', 1).lstrip()
+            # ctime
+            assert line == ctime
 
     def test_check_table_headers_constant_defined_in_same_item_keys_order(self, tmp_folder):
         """Test to check TABLE_HEADERS constant constructed with the same key
@@ -113,7 +118,7 @@ class TestDirtCLI(object):
         :type monkeypatch: _pytest.monkeypatch.MonkeyPatch
         :param tmp_folder: Test params and dummy test folder factory fixture pair.
         :type tmp_folder: (dict, dirtools.tests.factory.DummyFolderFactory)
-        :param clone_factory: Factory to create `FolderScan` clone instance.
+        :param clone_factory: Factory to create `Folder` clone instance.
         :type clone_factory: dirtools.tests.conftest.clone_factory._factory
         :return: 
         """
@@ -122,7 +127,7 @@ class TestDirtCLI(object):
         # Create a scanner mock from the factory
         scan = clone_factory(factory.path)
         FolderScanMock = Mock(return_value=scan)
-        monkeypatch.setattr(self.dirt, 'FolderScan', FolderScanMock)
+        monkeypatch.setattr(self.dirt, 'Folder', FolderScanMock)
 
         _tabulate = Mock(side_effect=tabulate)
         monkeypatch.setattr(self.dirt, 'tabulate', _tabulate)
@@ -148,7 +153,7 @@ class TestDirtCLI(object):
         :type monkeypatch: _pytest.monkeypatch.MonkeyPatch
         :param tmp_folder: Test params and dummy test folder factory fixture pair.
         :type tmp_folder: (dict, dirtools.tests.factory.DummyFolderFactory)
-        :param clone_factory: Factory to create `FolderScan` clone instance.
+        :param clone_factory: Factory to create `Folder` clone instance.
         :type clone_factory: dirtools.tests.conftest.clone_factory._factory
         :return:
         """
@@ -156,7 +161,7 @@ class TestDirtCLI(object):
         # Create a scanner mock from the factory
         scan = clone_factory(factory.path)
         FolderScanMock = Mock()
-        monkeypatch.setattr(self.dirt, 'FolderScan', FolderScanMock)
+        monkeypatch.setattr(self.dirt, 'Folder', FolderScanMock)
 
         scan._await()
         for sort_by in SortBy:
@@ -182,7 +187,7 @@ class TestDirtCLI(object):
         :type monkeypatch: _pytest.monkeypatch.MonkeyPatch
         :param tmp_folder: Test params and dummy test folder factory fixture pair.
         :type tmp_folder: (dict, dirtools.tests.factory.DummyFolderFactory)
-        :param clone_factory: Factory to create `FolderScan` clone instance.
+        :param clone_factory: Factory to create `Folder` clone instance.
         :type clone_factory: dirtools.tests.conftest.clone_factory._factory
         :return:
         """
@@ -190,7 +195,7 @@ class TestDirtCLI(object):
         # Create a scanner mock from the factory
         scan = clone_factory(factory.path)
         FolderScanMock = Mock(return_value=scan)
-        monkeypatch.setattr(self.dirt, 'FolderScan', FolderScanMock)
+        monkeypatch.setattr(self.dirt, 'Folder', FolderScanMock)
 
         _tabulate = Mock(side_effect=tabulate)
         monkeypatch.setattr(self.dirt, 'tabulate', _tabulate)
@@ -210,7 +215,7 @@ class TestDirtCLI(object):
         :type monkeypatch: _pytest.monkeypatch.MonkeyPatch
         :param tmp_folder: Test params and dummy test folder factory fixture pair.
         :type tmp_folder: (dict, dirtools.tests.factory.DummyFolderFactory)
-        :param clone_factory: Factory to create `FolderScan` clone instance.
+        :param clone_factory: Factory to create `Folder` clone instance.
         :type clone_factory: dirtools.tests.conftest.clone_factory._factory
         :return:
         """
@@ -226,7 +231,7 @@ class TestDirtCLI(object):
             # Create a scanner mock from the factory
             scan = clone_factory(factory.path, params['sort_by'], level=params['level'])
             FolderScanMock = Mock(return_value=scan)
-            monkeypatch.setattr(self.dirt, 'FolderScan', FolderScanMock)
+            monkeypatch.setattr(self.dirt, 'Folder', FolderScanMock)
 
             # Give only numeric trim-down value that shouldn't be accepted
             result = self.runner.invoke(

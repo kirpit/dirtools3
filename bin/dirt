@@ -27,7 +27,7 @@ try:
     if bool(os.environ.get('DIRTOOLS3_DEBUG')):
         sys.path.append(os.path.abspath(os.path.join(__file__, '../..')))
 
-    from dirtools import FolderScan, SortBy
+    from dirtools import Folder, SortBy
     from dirtools.utils import bytes2human, human2bytes
     from dirtools.loggers import logger
 except ImportError:
@@ -42,8 +42,9 @@ TABLE_HEADERS = {
     'size': 'Size',
     'depth': 'Depth',
     'num_of_files': 'Files',
-    'created_at': 'Created At',
-    'modified_at': 'Modified At'}
+    'atime': 'Access Time',
+    'mtime': 'Modify Time',
+    'ctime': 'Change Time'}
 
 cli = click.Group()
 SORT_BY_OPTIONS = [str(s).lower() for s in SortBy]
@@ -54,11 +55,11 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @cli.command(context_settings=CONTEXT_SETTINGS)
 @click.argument('path', nargs=1)
 @click.option('--sortby', '-s',
-              type=click.Choice(SORT_BY_OPTIONS), default=str(SortBy.NEWEST).lower(),
+              type=click.Choice(SORT_BY_OPTIONS), default=str(SortBy.ATIME_DESC).lower(),
               help='Sorting parameter to display the items in desired order. '
-                   'Defaults to "newest" that shows recently created items at '
-                   'the beginning, which is opposite of "oldest". To display '
-                   'newly modified ones use "hottest" and "coldest" for reverse.')
+                   'Defaults to "atime_desc" that shows recently accessed items at '
+                   'the beginning, which is opposite of "atime_asc". To display '
+                   'newly modified ones use "mtime_desc" and "mtime_asc" for vice versa.')
 @click.option('--output', '-o',
               type=click.Choice(TABULATE_OPTIONS), default='simple',
               help='This option is passed directly to python-tabulate package '
@@ -96,7 +97,7 @@ def invoke_dirtools3(path, sortby, output, precision, depth, nohuman, trim_down:
         return
 
     # Create folder object and start its scanning process
-    scan = FolderScan(path, sortby, level=depth)
+    scan = Folder(path, sortby, level=depth)
     old_size = scan.total_size
     old_items_len = len(scan)
 

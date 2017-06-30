@@ -1,7 +1,7 @@
-FolderScan
-==========
+Folder
+======
 
-.. autoclass:: dirtools.scanner.FolderScan
+.. autoclass:: dirtools.scanner.Folder
     :members:
     :special-members: __len__
 
